@@ -76,8 +76,7 @@ const Tank = struct {
         self.aim_angle = std.math.clamp(angle, 0.0, std.math.pi);
     }
 
-    pub fn update(self: *Tank, terrain: *Terrain) void {
-        _ = terrain;
+    pub fn update(self: *Tank, world: *World) void {
         if (rl.isKeyDown(.right)) {
             self.body.x += global_speed;
         } else if (rl.isKeyDown(.left)) {
@@ -91,18 +90,40 @@ const Tank = struct {
         }
 
         if (rl.isKeyReleased(.space)) {
-            std.log.debug("FIRE!", .{});
+            const gun_end = rl.Vector2{
+                .x = self.body.x + std.math.cos(self.aim_angle) * 30,
+                .y = self.body.y - std.math.sin(self.aim_angle) * 30,
+            };
+            Weapon.fire(world, gun_end);
         }
     }
 };
 
 const Weapon = struct {
     body: rl.Rectangle = .{ .x = 0, .y = 0, .width = 5, .height = 5 },
-    velocity: rl.Vector2 = .{ .x = 0, .y = 0 },
+    velocity: rl.Vector2 = .{ .x = 20, .y = 10 },
     is_active: bool = false,
 
+    fn fire(world: *World, gun_end: rl.Vector2) void {
+        const weapon: Weapon = .{
+            .body = .{ .x = gun_end.x, .y = gun_end.y, .width = 5, .height = 5 },
+        };
+        world.weapons[world.num_weapons] = weapon;
 
-}
+        world.num_weapons += 1;
+    }
+
+    fn render(self: *Weapon) void {
+        rl.drawRectangleRec(self.body, .black);
+    }
+
+    fn update(self: *Weapon) void {
+        self.body.x += self.velocity.x;
+        self.body.y += self.velocity.y;
+
+        self.velocity.y += 1;
+    }
+};
 
 const World = struct {
     terrain: Terrain = Terrain{},
@@ -110,6 +131,9 @@ const World = struct {
         Tank{ .color = .red },
         Tank{ .color = .yellow },
     },
+
+    num_weapons: u32 = 0,
+    weapons: [100]Weapon = [1]Weapon{.{}} ** 100,
 
     pub fn init(self: *World) void {
         self.terrain.fillHalf(1);
@@ -119,10 +143,22 @@ const World = struct {
         self.tanks[1].body.y = 500 / 2 - 20;
     }
 
+    fn update(self: *World) void {
+        for (&self.tanks) |*tank| {
+            tank.update(self);
+        }
+        for (0..self.num_weapons) |i| {
+            self.weapons[i].update();
+        }
+    }
+
     pub fn render(self: *World) void {
         self.terrain.render();
         for (self.tanks) |tank| {
             tank.render();
+        }
+        for (0..self.num_weapons) |i| {
+            self.weapons[i].render();
         }
     }
 };
@@ -132,7 +168,7 @@ pub fn main() anyerror!void {
     defer rl.closeWindow();
     rl.setTargetFPS(120);
 
-    var world = World{};
+    var world: World = .{};
     world.init();
 
     // Main game loop
@@ -140,8 +176,7 @@ pub fn main() anyerror!void {
         rl.beginDrawing();
         rl.clearBackground(.white);
 
-        world.tanks[0].update(&world.terrain);
-        // world.tanks[1].update(&world.terrain);
+        world.update();
 
         world.render();
 
