@@ -42,7 +42,7 @@ const Terrain = struct {
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
     aim_angle: f32 = 0.0,
-    power: f32 = 0.0,
+    power: f32 = 10.0,
     health: u32 = 100,
     color: rl.Color = .red,
 
@@ -112,15 +112,14 @@ const Tank = struct {
 
             Weapon.fire(world, gun_end, initial_velocity);
         }
-
-        // std.debug.print("angle: {d}, power {d}", .{ self.aim_angle, self.power });
     }
 };
 
 const Weapon = struct {
     body: rl.Rectangle = .{ .x = 0, .y = 0, .width = 5, .height = 5 },
     velocity: rl.Vector2 = .{ .x = 0, .y = 0 },
-    is_active: bool = false,
+    is_active: bool = true,
+    is_exploding: bool = false,
 
     fn fire(world: *World, gun_end: rl.Vector2, initial_velocity: rl.Vector2) void {
         const weapon: Weapon = .{
@@ -128,6 +127,7 @@ const Weapon = struct {
             .velocity = initial_velocity,
         };
         world.weapons[world.num_weapons] = weapon;
+        std.log.debug("status: {}", .{weapon.is_active});
 
         world.num_weapons += 1;
     }
@@ -136,11 +136,47 @@ const Weapon = struct {
         rl.drawRectangleRec(self.body, .black);
     }
 
-    fn update(self: *Weapon) void {
+    fn update(self: *Weapon, world: *World) void {
         self.body.x += self.velocity.x;
         self.body.y += self.velocity.y;
 
         self.velocity.y += 1;
+
+        for (0..world.terrain.height) |y| {
+            for (0..world.terrain.width) |x| {
+                if (world.terrain.getTerrain(x, y).* > 0) {
+                    if (rl.checkCollisionPointRec(.{ .x = @floatFromInt(x), .y = @floatFromInt(y) }, self.body)) {
+                        self.explode(world);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    fn explode(self: *Weapon, world: *World) void {
+        const radius: u32 = 20;
+        const x_start: usize = @intFromFloat(self.body.x - radius);
+        const y_start: usize = @intFromFloat(self.body.y - radius);
+
+        for (y_start..y_start + 2 * radius) |y| {
+            for (x_start..x_start + 2 * radius) |x| {
+                world.terrain.getTerrain(x, y).* = 0;
+            }
+        }
+
+        for (0..world.tanks.len) |i| {
+            if (i != world.active_tank) {
+                const blast: rl.Rectangle = .{ .x = @floatFromInt(x_start), .y = @floatFromInt(y_start), .height = radius * 2, .width = radius * 2 };
+                if (rl.checkCollisionRecs(blast, world.tanks[i].body)) {
+                    world.tanks[i].health -= 10;
+                    std.log.debug("health: {d}", .{world.tanks[i].health});
+                }
+            }
+        }
+        std.log.debug("explode", .{});
+        self.is_active = false;
+        self.is_exploding = false;
     }
 };
 
@@ -171,7 +207,7 @@ const World = struct {
 
         self.tanks[self.active_tank].update(self);
         for (0..self.num_weapons) |i| {
-            self.weapons[i].update();
+            if (self.weapons[i].is_active) self.weapons[i].update(self);
         }
     }
 
