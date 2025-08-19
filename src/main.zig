@@ -45,7 +45,12 @@ const Tank = struct {
     power: f32 = 10.0,
     health: u32 = 100,
     color: rl.Color = .red,
+    falling: bool = false,
+    turn_done: bool = false,
 
+    weapon: Weapon = Weapon{},
+
+    fired: bool = false,
     pub fn render(self: *const Tank) void {
         rl.drawRectangleRec(self.body, self.color);
 
@@ -65,12 +70,6 @@ const Tank = struct {
             3.0,
             .black,
         );
-
-        // std.log.debug("Tank at ({d:.2}, {d:.2}), aim angle: {d:.2}", .{
-        //     self.body.x,
-        //     self.body.y,
-        //     self.aim_angle,
-        // });
     }
 
     pub fn setAimAngle(self: *Tank, angle: f32) void {
@@ -82,6 +81,30 @@ const Tank = struct {
     }
 
     pub fn update(self: *Tank, world: *World) void {
+        const y_start: u32 = @intFromFloat(self.body.y + self.body.height + 1.0);
+        const x_start: u32 = @intFromFloat(self.body.x);
+        const x_end: u32 = @intFromFloat(self.body.x + self.body.width);
+        for (x_start..x_end) |x| {
+            if (world.terrain.getTerrain(x, y_start).* > 0) {
+                self.falling = false;
+            } else {
+                self.falling = true;
+            }
+        }
+
+        if (self.falling) {
+            self.body.y += 10;
+            return;
+        }
+
+        if (self.fired == true) {
+            // return;
+        }
+
+        if (&world.tanks[world.active_tank] != self) {
+            return;
+        }
+
         if (rl.isKeyDown(.right)) {
             self.body.x += global_speed;
         } else if (rl.isKeyDown(.left)) {
@@ -110,6 +133,7 @@ const Tank = struct {
                 .y = self.power * -std.math.sin(self.aim_angle),
             };
 
+            self.fired = true;
             Weapon.fire(world, gun_end, initial_velocity);
         }
     }
@@ -118,18 +142,23 @@ const Tank = struct {
 const Weapon = struct {
     body: rl.Rectangle = .{ .x = 0, .y = 0, .width = 5, .height = 5 },
     velocity: rl.Vector2 = .{ .x = 0, .y = 0 },
-    is_active: bool = true,
+    is_active: bool = false,
     is_exploding: bool = false,
+    next_turn: bool = false,
+    tank_id: usize = 0,
 
     fn fire(world: *World, gun_end: rl.Vector2, initial_velocity: rl.Vector2) void {
         const weapon: Weapon = .{
             .body = .{ .x = gun_end.x, .y = gun_end.y, .width = 5, .height = 5 },
             .velocity = initial_velocity,
+            .tank_id = world.active_tank,
+            .is_active = true,
         };
-        world.weapons[world.num_weapons] = weapon;
+        world.weapons[world.active_tank] = weapon;
+
         std.log.debug("status: {}", .{weapon.is_active});
 
-        world.num_weapons += 1;
+        // world.num_weapons += 1;
     }
 
     fn render(self: *Weapon) void {
@@ -143,6 +172,7 @@ const Weapon = struct {
                 const direct_collide = rl.checkCollisionRecs(self.body, tank_to_check.body);
                 if (direct_collide) {
                     self.explode(world);
+                    return;
                 }
             }
         }
@@ -168,7 +198,7 @@ const Weapon = struct {
     }
 
     fn explode(self: *Weapon, world: *World) void {
-        const radius: u32 = 20;
+        const radius: u32 = 50;
         const x_start: usize = @intFromFloat(self.body.x - radius);
         const y_start: usize = @intFromFloat(self.body.y - radius);
 
@@ -190,6 +220,9 @@ const Weapon = struct {
 
         self.is_active = false;
         self.is_exploding = false;
+        world.active_tank = (world.active_tank + 1) % (world.tanks.len);
+        world.tanks[world.active_tank].fired = false;
+        std.log.debug("world.active_tank: {d}", .{world.active_tank});
     }
 };
 
@@ -214,13 +247,13 @@ const World = struct {
     }
 
     fn update(self: *World) void {
-        // for (&self.tanks) |*tank| {
-        //     tank.update(self);
-        // }
-
-        self.tanks[self.active_tank].update(self);
-        for (0..self.num_weapons) |i| {
-            if (self.weapons[i].is_active) self.weapons[i].update(self);
+        for (0..self.tanks.len) |i| {
+            self.tanks[i].update(self);
+        }
+        if (self.weapons[self.active_tank].is_active) {
+            self.weapons[self.active_tank].update(self);
+        } else {
+            self.active_tank = (self.active_tank + 1) % (self.tanks.len - 1);
         }
     }
 
@@ -229,8 +262,9 @@ const World = struct {
         for (self.tanks) |tank| {
             tank.render();
         }
-        for (0..self.num_weapons) |i| {
-            if (self.weapons[i].is_active) self.weapons[i].render();
+
+        if (self.weapons[self.active_tank].is_active) {
+            self.weapons[self.active_tank].render();
         }
 
         const text = rl.textFormat(
@@ -251,10 +285,10 @@ pub fn main() anyerror!void {
 
     // Main game loop
     while (!rl.windowShouldClose()) {
+        world.update();
+
         rl.beginDrawing();
         rl.clearBackground(.white);
-
-        world.update();
 
         world.render();
 
