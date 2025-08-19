@@ -136,12 +136,16 @@ const Weapon = struct {
         rl.drawRectangleRec(self.body, .black);
     }
 
-    fn update(self: *Weapon, world: *World) void {
-        self.body.x += self.velocity.x;
-        self.body.y += self.velocity.y;
-
-        self.velocity.y += 1;
-
+    fn checkCollision(self: *Weapon, world: *World) void {
+        for (0..world.tanks.len) |i| {
+            if (i != world.active_tank) {
+                const tank_to_check = &world.tanks[i];
+                const direct_collide = rl.checkCollisionRecs(self.body, tank_to_check.body);
+                if (direct_collide) {
+                    self.explode(world);
+                }
+            }
+        }
         for (0..world.terrain.height) |y| {
             for (0..world.terrain.width) |x| {
                 if (world.terrain.getTerrain(x, y).* > 0) {
@@ -152,6 +156,15 @@ const Weapon = struct {
                 }
             }
         }
+    }
+
+    fn update(self: *Weapon, world: *World) void {
+        self.body.x += self.velocity.x;
+        self.body.y += self.velocity.y;
+
+        self.velocity.y += 1;
+
+        self.checkCollision(world);
     }
 
     fn explode(self: *Weapon, world: *World) void {
@@ -174,7 +187,7 @@ const Weapon = struct {
                 }
             }
         }
-        std.log.debug("explode", .{});
+
         self.is_active = false;
         self.is_exploding = false;
     }
@@ -217,7 +230,7 @@ const World = struct {
             tank.render();
         }
         for (0..self.num_weapons) |i| {
-            self.weapons[i].render();
+            if (self.weapons[i].is_active) self.weapons[i].render();
         }
 
         const text = rl.textFormat(
