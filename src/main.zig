@@ -42,6 +42,7 @@ const Terrain = struct {
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
     aim_angle: f32 = 0.0,
+    power: f32 = 0.0,
     health: u32 = 100,
     color: rl.Color = .red,
 
@@ -76,6 +77,10 @@ const Tank = struct {
         self.aim_angle = std.math.clamp(angle, 0.0, std.math.pi);
     }
 
+    fn setPower(self: *Tank, power: f32) void {
+        self.power = std.math.clamp(power, 0.0, 100.0);
+    }
+
     pub fn update(self: *Tank, world: *World) void {
         if (rl.isKeyDown(.right)) {
             self.body.x += global_speed;
@@ -83,10 +88,16 @@ const Tank = struct {
             self.body.x -= global_speed;
         }
 
-        if (rl.isKeyDown(.up)) {
-            self.setAimAngle(self.aim_angle + 0.25);
-        } else if (rl.isKeyDown(.down)) {
+        if (rl.isKeyDown(.down)) {
             self.setAimAngle(self.aim_angle - 0.25);
+        } else if (rl.isKeyDown(.up)) {
+            self.setAimAngle(self.aim_angle + 0.25);
+        }
+
+        if (rl.isKeyDown(.w)) {
+            self.setPower(self.power + 0.5);
+        } else if (rl.isKeyDown(.s)) {
+            self.setPower(self.power - 0.5);
         }
 
         if (rl.isKeyReleased(.space)) {
@@ -94,19 +105,27 @@ const Tank = struct {
                 .x = self.body.x + std.math.cos(self.aim_angle) * 30,
                 .y = self.body.y - std.math.sin(self.aim_angle) * 30,
             };
-            Weapon.fire(world, gun_end);
+            const initial_velocity: rl.Vector2 = .{
+                .x = self.power * std.math.cos(self.aim_angle),
+                .y = self.power * -std.math.sin(self.aim_angle),
+            };
+
+            Weapon.fire(world, gun_end, initial_velocity);
         }
+
+        // std.debug.print("angle: {d}, power {d}", .{ self.aim_angle, self.power });
     }
 };
 
 const Weapon = struct {
     body: rl.Rectangle = .{ .x = 0, .y = 0, .width = 5, .height = 5 },
-    velocity: rl.Vector2 = .{ .x = 20, .y = 10 },
+    velocity: rl.Vector2 = .{ .x = 0, .y = 0 },
     is_active: bool = false,
 
-    fn fire(world: *World, gun_end: rl.Vector2) void {
+    fn fire(world: *World, gun_end: rl.Vector2, initial_velocity: rl.Vector2) void {
         const weapon: Weapon = .{
             .body = .{ .x = gun_end.x, .y = gun_end.y, .width = 5, .height = 5 },
+            .velocity = initial_velocity,
         };
         world.weapons[world.num_weapons] = weapon;
 
@@ -132,6 +151,8 @@ const World = struct {
         Tank{ .color = .yellow },
     },
 
+    active_tank: usize = 0,
+
     num_weapons: u32 = 0,
     weapons: [100]Weapon = [1]Weapon{.{}} ** 100,
 
@@ -144,9 +165,11 @@ const World = struct {
     }
 
     fn update(self: *World) void {
-        for (&self.tanks) |*tank| {
-            tank.update(self);
-        }
+        // for (&self.tanks) |*tank| {
+        //     tank.update(self);
+        // }
+
+        self.tanks[self.active_tank].update(self);
         for (0..self.num_weapons) |i| {
             self.weapons[i].update();
         }
@@ -160,6 +183,12 @@ const World = struct {
         for (0..self.num_weapons) |i| {
             self.weapons[i].render();
         }
+
+        const text = rl.textFormat(
+            "angle: %.2f, power: %.2f\n",
+            .{ self.tanks[self.active_tank].aim_angle, self.tanks[self.active_tank].power },
+        );
+        rl.drawText(text, 0, 0, 15, .black);
     }
 };
 
@@ -181,6 +210,5 @@ pub fn main() anyerror!void {
         world.render();
 
         rl.endDrawing();
-        //----------------------------------------------------------------------------------
     }
 }
