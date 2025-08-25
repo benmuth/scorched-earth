@@ -5,7 +5,7 @@ const Terrain = @import("terrain.zig").Terrain;
 const world_width = 800;
 const world_height = 500;
 const global_gravity = 1;
-const global_speed = 10;
+const global_speed = 200;
 
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
@@ -55,9 +55,17 @@ const Tank = struct {
     }
 
     pub fn update(self: *Tank, world: *World) void {
-        for (0..self.weapons.len) |i| {
+        const delta_time = rl.getFrameTime();
+        for (0..self.num_weapons) |i| {
             if (self.weapons[i].is_active) {
                 self.weapons[i].update(world);
+            }
+        }
+
+        for (0..self.num_weapons) |i| {
+            if (self.weapons[i].is_active == false) {
+                self.weapons[i] = self.weapons[self.num_weapons - 1];
+                self.num_weapons -= 1;
             }
         }
         std.log.debug("num_weapons: {d}", .{self.num_weapons});
@@ -87,21 +95,25 @@ const Tank = struct {
         }
 
         if (rl.isKeyDown(.right)) {
-            self.body.x += global_speed;
+            self.body.x += global_speed * delta_time;
         } else if (rl.isKeyDown(.left)) {
-            self.body.x -= global_speed;
+            self.body.x -= global_speed * delta_time;
         }
+
+        const aim_speed = 3.0 * delta_time;
 
         if (rl.isKeyDown(.down)) {
-            self.setAimAngle(self.aim_angle - 0.25);
+            self.setAimAngle(self.aim_angle - aim_speed);
         } else if (rl.isKeyDown(.up)) {
-            self.setAimAngle(self.aim_angle + 0.25);
+            self.setAimAngle(self.aim_angle + aim_speed);
         }
 
+        const power_speed = 50.0 * delta_time;
+
         if (rl.isKeyDown(.w)) {
-            self.setPower(self.power + 0.5);
+            self.setPower(self.power + power_speed);
         } else if (rl.isKeyDown(.s)) {
-            self.setPower(self.power - 0.5);
+            self.setPower(self.power - power_speed);
         }
 
         if (rl.isKeyReleased(.space)) {
@@ -110,8 +122,8 @@ const Tank = struct {
                 .y = self.body.y - std.math.sin(self.aim_angle) * 30,
             };
             const initial_velocity: rl.Vector2 = .{
-                .x = self.power * std.math.cos(self.aim_angle),
-                .y = self.power * -std.math.sin(self.aim_angle),
+                .x = 50 * self.power * std.math.cos(self.aim_angle),
+                .y = 50 * self.power * -std.math.sin(self.aim_angle),
             };
 
             self.fired = true;
@@ -148,6 +160,15 @@ const Weapon = struct {
     }
 
     fn checkCollision(self: *Weapon, world: *World) void {
+        const width: f32 = @floatFromInt(world.terrain.width);
+        const height: f32 = @floatFromInt(world.terrain.height);
+        if (self.body.x < 0 or self.body.x > width or
+            self.body.y < 0 or self.body.y > height)
+            self.is_active = false;
+        {
+            return;
+        }
+
         for (0..world.tanks.len) |i| {
             if (i != world.active_tank) {
                 const tank_to_check = &world.tanks[i];
@@ -171,10 +192,11 @@ const Weapon = struct {
     }
 
     fn update(self: *Weapon, world: *World) void {
-        self.body.x += self.velocity.x;
-        self.body.y += self.velocity.y;
+        const delta_time = rl.getFrameTime();
+        self.body.x += self.velocity.x * delta_time;
+        self.body.y += self.velocity.y * delta_time;
 
-        self.velocity.y += 1;
+        self.velocity.y += 3000 * delta_time;
 
         self.checkCollision(world);
     }
