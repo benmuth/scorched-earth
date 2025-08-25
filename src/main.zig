@@ -1,43 +1,11 @@
 const std = @import("std");
 const rl = @import("raylib");
+const Terrain = @import("terrain.zig").Terrain;
 
 const world_width = 800;
 const world_height = 500;
 const global_gravity = 1;
 const global_speed = 10;
-
-const Terrain = struct {
-    width: u32 = world_width,
-    height: u32 = world_height,
-    data: [world_width * world_height]u32 = [_]u32{0} ** (world_width * world_height),
-
-    pub fn fillHalf(self: *Terrain, t_type: u32) void {
-        const half_height = self.height / 2;
-        @memset(self.data[0 .. self.width * self.height], 0);
-
-        for (half_height..self.height) |y| {
-            for (0..self.width) |x| {
-                self.getTerrain(x, y).* = t_type;
-            }
-        }
-    }
-
-    pub fn getTerrain(self: *Terrain, x: usize, y: usize) *u32 {
-        if (x >= self.width or y >= self.height) {
-            std.debug.assert(false);
-        }
-        return &self.data[y * self.width + x];
-    }
-
-    pub fn render(self: *Terrain) void {
-        for (0..self.height) |y| {
-            for (0..self.width) |x| {
-                const color: rl.Color = if (self.getTerrain(x, y).* == 1) .green else .blue;
-                rl.drawPixel(@intCast(x), @intCast(y), color);
-            }
-        }
-    }
-};
 
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
@@ -241,7 +209,7 @@ const Weapon = struct {
 };
 
 const World = struct {
-    terrain: Terrain = Terrain{},
+    terrain: Terrain = undefined,
     tanks: [2]Tank = [_]Tank{
         Tank{ .color = .red },
         Tank{ .color = .yellow },
@@ -250,6 +218,7 @@ const World = struct {
     active_tank: usize = 0,
 
     pub fn init(self: *World) void {
+        self.terrain.init(world_width, world_height, std.heap.page_allocator) catch unreachable;
         self.terrain.fillHalf(1);
         self.tanks[0].body.x = 100;
         self.tanks[0].body.y = 500 / 2 - 20;
@@ -264,6 +233,10 @@ const World = struct {
     }
 
     pub fn render(self: *World) void {
+        self.terrain.pre_render();
+
+        rl.beginDrawing();
+        // rl.clearBackground(.white);
         self.terrain.render();
         for (&self.tanks) |*tank| {
             tank.render();
@@ -274,6 +247,7 @@ const World = struct {
             .{ self.tanks[self.active_tank].aim_angle, self.tanks[self.active_tank].power },
         );
         rl.drawText(text, 0, 0, 15, .black);
+        rl.endDrawing();
     }
 };
 
@@ -289,11 +263,6 @@ pub fn main() anyerror!void {
     while (!rl.windowShouldClose()) {
         world.update();
 
-        rl.beginDrawing();
-        rl.clearBackground(.white);
-
         world.render();
-
-        rl.endDrawing();
     }
 }
