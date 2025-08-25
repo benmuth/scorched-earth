@@ -74,7 +74,7 @@ const Tank = struct {
         const x_start: u32 = @intFromFloat(self.body.x);
         const x_end: u32 = @intFromFloat(self.body.x + self.body.width);
         for (x_start..x_end) |x| {
-            if (world.terrain.getTerrain(x, y_start).* > 0) {
+            if (world.terrain.getTerrain(x, y_start) > 0) {
                 self.falling = false;
             } else {
                 self.falling = true;
@@ -164,8 +164,8 @@ const Weapon = struct {
         const height: f32 = @floatFromInt(world.terrain.height);
         if (self.body.x < 0 or self.body.x > width or
             self.body.y < 0 or self.body.y > height)
-            self.is_active = false;
         {
+            self.is_active = false;
             return;
         }
 
@@ -181,7 +181,7 @@ const Weapon = struct {
         }
         for (0..world.terrain.height) |y| {
             for (0..world.terrain.width) |x| {
-                if (world.terrain.getTerrain(x, y).* > 0) {
+                if (world.terrain.getTerrain(x, y) > 0) {
                     if (rl.checkCollisionPointRec(.{ .x = @floatFromInt(x), .y = @floatFromInt(y) }, self.body)) {
                         self.explode(world);
                         return;
@@ -208,7 +208,7 @@ const Weapon = struct {
 
         for (y_start..y_start + 2 * radius) |y| {
             for (x_start..x_start + 2 * radius) |x| {
-                world.terrain.getTerrain(x, y).* = 0;
+                world.terrain.setTerrain(x, y, 0);
             }
         }
 

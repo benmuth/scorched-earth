@@ -32,16 +32,23 @@ pub const Terrain = struct {
 
         for (half_height..self.height) |y| {
             for (0..self.width) |x| {
-                self.getTerrain(x, y).* = t_type;
+                self.setTerrain(x, y, t_type);
             }
         }
     }
 
-    pub fn getTerrain(self: *Terrain, x: usize, y: usize) *u32 {
+    pub fn setTerrain(self: *Terrain, x: usize, y: usize, t_type: u32) void {
+        if (x < 0 or y < 0 or x >= self.width or y >= self.height) {
+            return;
+        }
+        self.data[y * self.width + x] = t_type;
+    }
+
+    pub fn getTerrain(self: *Terrain, x: usize, y: usize) u32 {
         if (x >= self.width or y >= self.height) {
             std.debug.assert(false);
         }
-        return &self.data[y * self.width + x];
+        return self.data[y * self.width + x];
     }
 
     pub fn pre_render(self: *Terrain) void {
@@ -49,7 +56,7 @@ pub const Terrain = struct {
 
         for (0..self.height) |y| {
             for (0..self.width) |x| {
-                const color: u32 = if (self.getTerrain(x, y).* == 1) 0xFF30E400 else 0xFFFFF179;
+                const color: u32 = if (self.getTerrain(x, y) == 1) 0xFF30E400 else 0xFFFFF179;
                 self.texture_data[y * self.width + x] = color;
             }
         }
