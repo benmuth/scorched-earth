@@ -61,23 +61,10 @@ const Tank = struct {
         temp_body.width -= 1;
         temp_body.height -= 1;
 
-        for (0..terrain.height) |y| {
-            for (0..terrain.width) |x| {
-                if (terrain.getTerrain(x, y) > 0) {
-                    const terrain_body = rl.Rectangle{
-                        .x = @floatFromInt(x),
-                        .y = @floatFromInt(y),
-                        .width = 1,
-                        .height = 1,
-                    };
-
-                    if (rl.checkCollisionRecs(terrain_body, temp_body)) {
-                        std.log.debug("Collision detected at ({}, {})\n", .{ x, y });
-                        return;
-                    }
-                }
-            }
+        if (terrain.checkCollisionRect(temp_body)) {
+            return;
         }
+
         self.body.x = _x;
         self.body.y = _y;
     }
@@ -211,15 +198,9 @@ const Weapon = struct {
                 }
             }
         }
-        for (0..world.terrain.height) |y| {
-            for (0..world.terrain.width) |x| {
-                if (world.terrain.getTerrain(x, y) > 0) {
-                    if (rl.checkCollisionPointRec(.{ .x = @floatFromInt(x), .y = @floatFromInt(y) }, self.body)) {
-                        self.explode(world);
-                        return;
-                    }
-                }
-            }
+        if (world.terrain.checkCollisionRect(self.body)) {
+            self.explode(world);
+            return;
         }
     }
 

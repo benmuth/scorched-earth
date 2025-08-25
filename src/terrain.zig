@@ -125,7 +125,7 @@ pub const Terrain = struct {
         self.data[y * self.width + x] = t_type;
     }
 
-    pub fn getTerrain(self: *Terrain, x: usize, y: usize) u32 {
+    fn getTerrain(self: *Terrain, x: usize, y: usize) u32 {
         if (x >= self.width or y >= self.height) {
             std.debug.assert(false);
         }
