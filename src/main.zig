@@ -328,6 +328,7 @@ const GameState = enum {
 
 pub fn main() anyerror!void {
     rl.initWindow(screen_width, screen_height, "Scorched Earth");
+    rl.setConfigFlags(.{ .window_resizable = true, .window_highdpi = true });
     defer rl.closeWindow();
     rl.setTargetFPS(120);
 
