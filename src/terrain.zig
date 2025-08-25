@@ -16,14 +16,6 @@ pub const Terrain = struct {
     texture_data: []u32,
     texture: rl.RenderTexture2D = undefined,
 
-    pub fn setTerrainRect(self: *Terrain, _x: usize, _y: usize, w: usize, h: usize, t_type: u32) void {
-        for (_y.._y + h) |y| {
-            for (_x.._x + w) |x| {
-                self.setTerrain(x, y, t_type);
-            }
-        }
-    }
-
     pub fn init(self: *Terrain, width: u32, height: u32, allocator: std.mem.Allocator) !void {
         self.width = width;
         self.height = height;
@@ -65,6 +57,37 @@ pub const Terrain = struct {
         }
     }
 
+    pub fn setTerrainRect(self: *Terrain, _x: usize, _y: usize, w: usize, h: usize, t_type: u32) void {
+        for (_y.._y + h) |y| {
+            for (_x.._x + w) |x| {
+                self.setTerrain(x, y, t_type);
+            }
+        }
+    }
+
+    pub fn checkCollisionRect(self: *Terrain, rect: rl.Rectangle) bool {
+        var body = rect;
+        body.x -= self.world_origin_x;
+        body.y -= self.world_origin_y;
+
+        for (0..self.height) |y| {
+            for (0..self.width) |x| {
+                if (self.getTerrain(x, y) > 0) {
+                    const terrain_rect = rl.Rectangle{
+                        .x = @floatFromInt(x),
+                        .y = @floatFromInt(y),
+                        .width = 1,
+                        .height = 1,
+                    };
+                    if (rl.checkCollisionRecs(body, terrain_rect)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     pub fn setTerrainWorld(self: *Terrain, world_x: f32, world_y: f32, t_type: u32) void {
         const index = self.worldToIndex(world_x, world_y);
         if (index) |i| {
@@ -77,7 +100,7 @@ pub const Terrain = struct {
         if (index) |i| {
             return self.getTerrainIndex(i);
         } else {
-            return 0;
+            unreachable;
         }
     }
 
@@ -95,7 +118,7 @@ pub const Terrain = struct {
         return self.data[index];
     }
 
-    pub fn setTerrain(self: *Terrain, x: usize, y: usize, t_type: u32) void {
+    fn setTerrain(self: *Terrain, x: usize, y: usize, t_type: u32) void {
         if (x < 0 or y < 0 or x >= self.width or y >= self.height) {
             return;
         }

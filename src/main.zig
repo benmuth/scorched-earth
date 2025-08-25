@@ -94,6 +94,7 @@ const Tank = struct {
                 return;
             }
         }
+        self.falling = true;
     }
 
     pub fn update(self: *Tank, world: *World) void {
