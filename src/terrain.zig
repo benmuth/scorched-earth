@@ -9,6 +9,7 @@ const TerrainType = enum(u32) {
 pub const Terrain = struct {
     world_origin_x: f32 = 0,
     world_origin_y: f32 = 0,
+    scale: f32 = 1.0, // world units per grid item
 
     width: u32 = 0,
     height: u32 = 0,
@@ -57,12 +58,48 @@ pub const Terrain = struct {
         }
     }
 
+    pub fn setTerrainCircle(self: *Terrain, center: rl.Vector2, radius: f32, t_type: u32) void {
+        var index1: f32 = 90;
+        var index2: f32 = 90;
+
+        while (index1 < 270) {
+            var x1 = radius * std.math.cos(index1 * std.math.pi / 180);
+            const x2 = radius * std.math.cos(index2 * std.math.pi / 180);
+            const y1 = radius * std.math.sin(index1 * std.math.pi / 180);
+
+            while (x1 < x2) : (x1 += 1) {
+                self.setTerrainWorld(center.x + x1, center.y + y1, t_type);
+            }
+            index1 += 1;
+            index2 -= 1;
+        }
+    }
+
     pub fn setTerrainRect(self: *Terrain, _x: usize, _y: usize, w: usize, h: usize, t_type: u32) void {
         for (_y.._y + h) |y| {
             for (_x.._x + w) |x| {
                 self.setTerrain(x, y, t_type);
             }
         }
+    }
+
+    pub fn checkCollisionCircle(self: *Terrain, center: rl.Vector2, radius: f32) bool {
+        for (0..self.height) |y| {
+            for (0..self.width) |x| {
+                if (self.getTerrain(x, y) > 0) {
+                    const terrain_rect = rl.Rectangle{
+                        .x = @floatFromInt(x),
+                        .y = @floatFromInt(y),
+                        .width = 1,
+                        .height = 1,
+                    };
+                    if (rl.checkCollisionCircleRec(center, radius, terrain_rect)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     pub fn checkCollisionRect(self: *Terrain, rect: rl.Rectangle) bool {

@@ -152,6 +152,8 @@ const Tank = struct {
 };
 
 const Weapon = struct {
+    position: rl.Vector2 = .{ .x = 0, .y = 0 },
+    radius: f32 = 10.0,
     body: rl.Rectangle = .{ .x = 0, .y = 0, .width = 5, .height = 5 },
     velocity: rl.Vector2 = .{ .x = 0, .y = 0 },
     is_active: bool = false,
@@ -162,6 +164,8 @@ const Weapon = struct {
 
     fn fire(world: *World, tank: *Tank, gun_end: rl.Vector2, initial_velocity: rl.Vector2) void {
         const weapon: Weapon = .{
+            .position = gun_end,
+            .radius = 2.0,
             .body = .{ .x = gun_end.x, .y = gun_end.y, .width = 5, .height = 5 },
             .velocity = initial_velocity,
             .tank_id = world.active_tank,
@@ -175,30 +179,29 @@ const Weapon = struct {
     }
 
     fn render(self: *Weapon) void {
-        rl.drawRectangleRec(self.body, .black);
+        rl.drawRectangleLinesEx(self.body, 1, .black);
+        rl.drawCircleV(self.position, self.radius, .red);
     }
 
     fn checkCollision(self: *Weapon, world: *World) void {
         const width: f32 = @floatFromInt(world.terrain.width);
         const height: f32 = @floatFromInt(world.terrain.height);
-        if (self.body.x < 0 or self.body.x > width or
-            self.body.y < 0 or self.body.y > height)
+        if (self.position.x < 0 or self.position.x > width or
+            self.position.y < 0 or self.position.y > height)
         {
             self.is_active = false;
             return;
         }
 
         for (0..world.tanks.len) |i| {
-            if (i != world.active_tank) {
-                const tank_to_check = &world.tanks[i];
-                const direct_collide = rl.checkCollisionRecs(self.body, tank_to_check.body);
-                if (direct_collide) {
-                    self.explode(world);
-                    return;
-                }
+            const tank_to_check = &world.tanks[i];
+            const direct_collide = rl.checkCollisionCircleRec(self.position, self.radius, tank_to_check.body);
+            if (direct_collide) {
+                self.explode(world);
+                return;
             }
         }
-        if (world.terrain.checkCollisionRect(self.body)) {
+        if (world.terrain.checkCollisionCircle(self.position, self.radius)) {
             self.explode(world);
             return;
         }
@@ -206,8 +209,11 @@ const Weapon = struct {
 
     fn update(self: *Weapon, world: *World) void {
         const delta_time = rl.getFrameTime();
+
         self.body.x += self.velocity.x * delta_time;
         self.body.y += self.velocity.y * delta_time;
+
+        self.position = self.position.add(self.velocity.scale(delta_time));
 
         self.velocity.y += 3000 * delta_time;
 
@@ -215,19 +221,14 @@ const Weapon = struct {
     }
 
     fn explode(self: *Weapon, world: *World) void {
-        const radius: u32 = 50;
-        const x_start: usize = if (self.body.x - radius < 0) 0 else @intFromFloat(self.body.x - radius);
-        const y_start: usize = if (self.body.y - radius < 0) 0 else @intFromFloat(self.body.y - radius);
+        const radius: u32 = 25;
 
-        world.terrain.setTerrainRect(x_start, y_start, radius * 2, radius * 2, 0);
+        world.terrain.setTerrainCircle(self.position, radius, 0);
 
         for (0..world.tanks.len) |i| {
-            if (i != world.active_tank) {
-                const blast: rl.Rectangle = .{ .x = @floatFromInt(x_start), .y = @floatFromInt(y_start), .height = radius * 2, .width = radius * 2 };
-                if (rl.checkCollisionRecs(blast, world.tanks[i].body)) {
-                    world.tanks[i].health -= 10;
-                    std.log.debug("health: {d}", .{world.tanks[i].health});
-                }
+            if (rl.checkCollisionCircleRec(self.position, radius, world.tanks[i].body)) {
+                world.tanks[i].health -= 10;
+                std.log.debug("health: {d}", .{world.tanks[i].health});
             }
         }
 
@@ -248,10 +249,10 @@ const World = struct {
 
     active_tank: usize = 0,
     camera: rl.Camera2D = .{
-        .offset = .{ .x = world_width / 2, .y = world_height / 2 },
+        .offset = .{ .x = 0, .y = world_height },
         .target = .{ .x = 0, .y = world_height / 2 },
         .rotation = 0.0,
-        .zoom = 3.0,
+        .zoom = 2.0,
     },
 
     pub fn init(self: *World) void {
