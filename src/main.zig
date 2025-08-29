@@ -6,12 +6,14 @@ const world_width = 800;
 const world_height = 500;
 const global_gravity = 1;
 const global_speed = 200;
+const screen_width = 1920;
+const screen_height = 1080;
 
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
     aim_angle: f32 = 0.0,
     power: f32 = 10.0,
-    health: u32 = 100,
+    health: u32 = 20,
     color: rl.Color = .red,
     falling: bool = false,
     turn_done: bool = false,
@@ -130,8 +132,18 @@ const Tank = struct {
         const power_speed = 50.0 * delta_time;
 
         if (rl.isKeyDown(.w)) {
+            if (world.sound2) |s| {
+                if (!rl.isSoundPlaying(s)) {
+                    rl.playSound(s);
+                }
+            }
             self.setPower(self.power + power_speed);
         } else if (rl.isKeyDown(.s)) {
+            if (world.sound2) |s| {
+                if (!rl.isSoundPlaying(s)) {
+                    rl.playSound(s);
+                }
+            }
             self.setPower(self.power - power_speed);
         }
 
@@ -174,6 +186,9 @@ const Weapon = struct {
 
         tank.weapons[tank.num_weapons] = weapon;
         tank.num_weapons += 1;
+        if (world.sound) |s| {
+            rl.playSound(s);
+        }
 
         std.log.debug("status: {}", .{weapon.is_active});
     }
@@ -186,6 +201,7 @@ const Weapon = struct {
     fn checkCollision(self: *Weapon, world: *World) void {
         const width: f32 = @floatFromInt(world.terrain.width);
         const height: f32 = @floatFromInt(world.terrain.height);
+
         if (self.position.x < 0 or self.position.x > width or
             self.position.y < 0 or self.position.y > height)
         {
@@ -241,6 +257,9 @@ const Weapon = struct {
 };
 
 const World = struct {
+    sound: ?rl.Sound = null,
+    sound2: ?rl.Sound = null,
+    game_state: GameState = .Menu,
     terrain: Terrain = undefined,
     tanks: [2]Tank = [_]Tank{
         Tank{ .color = .red },
@@ -256,6 +275,7 @@ const World = struct {
     },
 
     pub fn init(self: *World) void {
+        self.sound = null;
         self.terrain.init(world_width, world_height, std.heap.page_allocator) catch unreachable;
         self.terrain.fillHalf(1);
         self.tanks[0].body.x = 100;
@@ -267,6 +287,13 @@ const World = struct {
     fn update(self: *World) void {
         for (0..self.tanks.len) |i| {
             self.tanks[i].update(self);
+        }
+
+        for (0..self.tanks.len) |i| {
+            if (self.tanks[i].health <= 0) {
+                std.log.debug("Tank {d} is destroyed!", .{i});
+                self.game_state = .GameOver;
+            }
         }
     }
 
@@ -292,18 +319,54 @@ const World = struct {
     }
 };
 
+const GameState = enum {
+    Menu,
+    Playing,
+    Paused,
+    GameOver,
+};
+
 pub fn main() anyerror!void {
-    rl.initWindow(1920, 1080, "Scorched Earth");
+    rl.initWindow(screen_width, screen_height, "Scorched Earth");
     defer rl.closeWindow();
     rl.setTargetFPS(120);
 
+    rl.initAudioDevice();
+
+    const canon = try rl.loadSound("assets/canon_fire.ogg"); // Preload sound
+    const click = try rl.loadSound("assets/click_sound.wav"); // Preload sound
+
     var world: World = .{};
     world.init();
+    world.sound = canon;
+    world.sound2 = click;
+
+    var gamestate = GameState.Menu;
+    _ = &gamestate;
 
     // Main game loop
     while (!rl.windowShouldClose()) {
-        world.update();
-
-        world.render();
+        switch (world.game_state) {
+            .Menu => {
+                rl.beginDrawing();
+                rl.clearBackground(.blue);
+                rl.drawText("Press ENTER to Start", screen_width / 2, screen_height / 2, 50, .white);
+                rl.endDrawing();
+                if (rl.isKeyPressed(.enter)) {
+                    world.game_state = .Playing;
+                }
+            },
+            .Playing => {
+                world.update();
+                world.render();
+            },
+            .Paused => {},
+            .GameOver => {
+                rl.beginDrawing();
+                // rl.clearBackground(.blue);
+                rl.drawText("Game Over", screen_width / 2, screen_height / 2, 50, .white);
+                rl.endDrawing();
+            },
+        }
     }
 }
