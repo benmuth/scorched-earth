@@ -14,6 +14,7 @@ pub const Terrain = struct {
     width: u32 = 0,
     height: u32 = 0,
     data: []u32,
+    is_falling: []bool,
     texture_data: []u32,
     texture: rl.RenderTexture2D = undefined,
 
@@ -26,11 +27,44 @@ pub const Terrain = struct {
         std.log.debug("texture format: {}\n", .{self.texture.texture.format});
         // self.texture.texture.format = rl.PixelFormat.uncompressed_r8g8b8a8;
         self.fillHalf(1);
+        // std.debug.print("data: {any}\n", .{self.data});
+        self.is_falling = try allocator.alloc(bool, width * height);
+        @memset(self.is_falling, false);
 
         self.world_origin_x = 0;
         self.world_origin_y = 0;
 
         std.log.debug("Terrain initialized: {d}x{d}\n", .{ width, height });
+    }
+
+    pub fn update(self: *Terrain) void {
+        var i: usize = self.data.len - 1;
+        @memset(self.is_falling, false);
+        while (i > 0) {
+            const x = i % self.width;
+            const y = i / self.width;
+
+            if (self.getTerrain(x, y + 1) == 0 and self.getTerrain(x, y) > 0 or (i + self.width < self.data.len and self.is_falling[i + self.width])) {
+                self.is_falling[i] = true;
+            }
+
+            i -= 1;
+        }
+        i = self.data.len - 1;
+
+        while (i > 0) {
+            const x = i % self.width;
+            const y = i / self.width;
+
+            if (self.is_falling[i]) {
+                std.debug.print("x: {d}, y: {d}\n", .{ x, y });
+                std.debug.print("FALLING!\n", .{});
+                self.setTerrain(x, y + 1, 2);
+                self.setTerrain(x, y, 0);
+            }
+
+            i -= 1;
+        }
     }
 
     pub fn worldToIndex(self: *Terrain, world_x: f32, world_y: f32) ?usize {
@@ -164,7 +198,7 @@ pub const Terrain = struct {
 
     fn getTerrain(self: *Terrain, x: usize, y: usize) u32 {
         if (x >= self.width or y >= self.height) {
-            std.debug.assert(false);
+            return 1;
         }
         return self.data[y * self.width + x];
     }
@@ -174,7 +208,12 @@ pub const Terrain = struct {
 
         for (0..self.height) |y| {
             for (0..self.width) |x| {
-                const color: u32 = if (self.getTerrain(x, y) == 1) 0xFF30E400 else 0xFFFFF179;
+                const color: u32 = switch (self.getTerrain(x,y)) {
+                    0 => 0xFFFFF179,
+                    1 => 0xFF30E400,
+                    2 => 0xFF00FF,
+                    else => 0x000000,
+                };
                 self.texture_data[y * self.width + x] = color;
             }
         }

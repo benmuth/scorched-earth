@@ -6,8 +6,8 @@ const world_width = 800;
 const world_height = 500;
 const global_gravity = 1;
 const global_speed = 200;
-const screen_width = 1920;
-const screen_height = 1080;
+var screen_width: i32= 1920;
+var screen_height: i32= 1080;
 
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
@@ -132,18 +132,18 @@ const Tank = struct {
         const power_speed = 50.0 * delta_time;
 
         if (rl.isKeyDown(.w)) {
-            if (world.sound2) |s| {
-                if (!rl.isSoundPlaying(s)) {
-                    rl.playSound(s);
-                }
-            }
+            // if (world.sound2) |s| {
+            //     if (!rl.isSoundPlaying(s)) {
+            //         rl.playSound(s);
+            //     }
+            // }
             self.setPower(self.power + power_speed);
         } else if (rl.isKeyDown(.s)) {
-            if (world.sound2) |s| {
-                if (!rl.isSoundPlaying(s)) {
-                    rl.playSound(s);
-                }
-            }
+            // if (world.sound2) |s| {
+            //     if (!rl.isSoundPlaying(s)) {
+            //         rl.playSound(s);
+            //     }
+            // }
             self.setPower(self.power - power_speed);
         }
 
@@ -186,11 +186,11 @@ const Weapon = struct {
 
         tank.weapons[tank.num_weapons] = weapon;
         tank.num_weapons += 1;
-        if (world.sound) |s| {
-            rl.playSound(s);
-        }
+        // if (world.sound) |s| {
+        //     rl.playSound(s);
+        // }
 
-        std.log.debug("status: {}", .{weapon.is_active});
+        // std.log.debug("status: {}", .{weapon.is_active});
     }
 
     fn render(self: *Weapon) void {
@@ -257,8 +257,8 @@ const Weapon = struct {
 };
 
 const World = struct {
-    sound: ?rl.Sound = null,
-    sound2: ?rl.Sound = null,
+    // sound: ?rl.Sound = null,
+    // sound2: ?rl.Sound = null,
     game_state: GameState = .Menu,
     terrain: Terrain = undefined,
     tanks: [2]Tank = [_]Tank{
@@ -275,7 +275,7 @@ const World = struct {
     },
 
     pub fn init(self: *World) void {
-        self.sound = null;
+        // self.sound = null;
         self.terrain.init(world_width, world_height, std.heap.page_allocator) catch unreachable;
         self.terrain.fillHalf(1);
         self.tanks[0].body.x = 100;
@@ -295,6 +295,8 @@ const World = struct {
                 self.game_state = .GameOver;
             }
         }
+
+        self.terrain.update();
     }
 
     pub fn render(self: *World) void {
@@ -332,15 +334,15 @@ pub fn main() anyerror!void {
     defer rl.closeWindow();
     rl.setTargetFPS(120);
 
-    rl.initAudioDevice();
+    // rl.initAudioDevice();
 
-    const canon = try rl.loadSound("assets/canon_fire.ogg"); // Preload sound
-    const click = try rl.loadSound("assets/click_sound.wav"); // Preload sound
+    // const canon = try rl.loadSound("assets/canon_fire.ogg"); // Preload sound
+    // const click = try rl.loadSound("assets/click_sound.wav"); // Preload sound
 
     var world: World = .{};
     world.init();
-    world.sound = canon;
-    world.sound2 = click;
+    // world.sound = canon;
+    // world.sound2 = click;
 
     var gamestate = GameState.Menu;
     _ = &gamestate;
@@ -351,7 +353,8 @@ pub fn main() anyerror!void {
             .Menu => {
                 rl.beginDrawing();
                 rl.clearBackground(.blue);
-                rl.drawText("Press ENTER to Start", screen_width / 2, screen_height / 2, 50, .white);
+                rl.drawText("Press ENTER to Start", 10, 10, 10, .white);
+                // rl.drawCircle(100, 100, 1000, rl.Color.white);
                 rl.endDrawing();
                 if (rl.isKeyPressed(.enter)) {
                     world.game_state = .Playing;
@@ -365,9 +368,10 @@ pub fn main() anyerror!void {
             .GameOver => {
                 rl.beginDrawing();
                 // rl.clearBackground(.blue);
-                rl.drawText("Game Over", screen_width / 2, screen_height / 2, 50, .white);
+                rl.drawText("Game Over", @divTrunc(screen_width, 2), @divTrunc(screen_height, 2), 50, .white);
                 rl.endDrawing();
             },
         }
+        // rl.endDrawing();
     }
 }
