@@ -44,8 +44,12 @@ pub const Terrain = struct {
             const x = i % self.width;
             const y = i / self.width;
 
-            if (self.getTerrain(x, y + 1) == 0 and self.getTerrain(x, y) > 0 or (i + self.width < self.data.len and self.is_falling[i + self.width])) {
-                self.is_falling[i] = true;
+            if (self.getTerrain(x, y) > 0) {
+                const below_empty = self.getTerrain(x, y + 1) == 0;
+
+                if (below_empty or (i + self.width < self.data.len and self.is_falling[i + self.width])) {
+                    self.is_falling[i] = true;
+                }
             }
 
             i -= 1;
@@ -57,9 +61,9 @@ pub const Terrain = struct {
             const y = i / self.width;
 
             if (self.is_falling[i]) {
-                std.debug.print("x: {d}, y: {d}\n", .{ x, y });
-                std.debug.print("FALLING!\n", .{});
-                self.setTerrain(x, y + 1, 2);
+                // std.debug.print("x: {d}, y: {d}\n", .{ x, y });
+                // std.debug.print("FALLING!\n", .{});
+                self.setTerrain(x, y + 1, 1);
                 self.setTerrain(x, y, 0);
             }
 
@@ -198,7 +202,8 @@ pub const Terrain = struct {
 
     fn getTerrain(self: *Terrain, x: usize, y: usize) u32 {
         if (x >= self.width or y >= self.height) {
-            return 1;
+            // std.debug.print("getTerrain out of bounds: x: {d}, y: {d}\n", .{ x, y });
+            return 100;
         }
         return self.data[y * self.width + x];
     }
@@ -208,7 +213,7 @@ pub const Terrain = struct {
 
         for (0..self.height) |y| {
             for (0..self.width) |x| {
-                const color: u32 = switch (self.getTerrain(x,y)) {
+                const color: u32 = switch (self.getTerrain(x, y)) {
                     0 => 0xFFFFF179,
                     1 => 0xFF30E400,
                     2 => 0xFF00FF,
