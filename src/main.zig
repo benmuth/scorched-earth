@@ -6,8 +6,8 @@ const world_width = 800;
 const world_height = 500;
 const global_gravity = 1;
 const global_speed = 200;
-var screen_width: i32= 1920;
-var screen_height: i32= 1080;
+var screen_width: i32 = 1920;
+var screen_height: i32 = 1080;
 
 const Tank = struct {
     body: rl.Rectangle = .{ .x = 100, .y = 100, .width = 50, .height = 20 },
@@ -132,18 +132,18 @@ const Tank = struct {
         const power_speed = 50.0 * delta_time;
 
         if (rl.isKeyDown(.w)) {
-            // if (world.sound2) |s| {
-            //     if (!rl.isSoundPlaying(s)) {
-            //         rl.playSound(s);
-            //     }
-            // }
+            if (world.sound2) |s| {
+                if (!rl.isSoundPlaying(s)) {
+                    rl.playSound(s);
+                }
+            }
             self.setPower(self.power + power_speed);
         } else if (rl.isKeyDown(.s)) {
-            // if (world.sound2) |s| {
-            //     if (!rl.isSoundPlaying(s)) {
-            //         rl.playSound(s);
-            //     }
-            // }
+            if (world.sound2) |s| {
+                if (!rl.isSoundPlaying(s)) {
+                    rl.playSound(s);
+                }
+            }
             self.setPower(self.power - power_speed);
         }
 
@@ -186,9 +186,9 @@ const Weapon = struct {
 
         tank.weapons[tank.num_weapons] = weapon;
         tank.num_weapons += 1;
-        // if (world.sound) |s| {
-        //     rl.playSound(s);
-        // }
+        if (world.sound) |s| {
+            rl.playSound(s);
+        }
 
         // std.log.debug("status: {}", .{weapon.is_active});
     }
